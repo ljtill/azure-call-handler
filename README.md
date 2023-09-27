@@ -19,10 +19,10 @@ sequenceDiagram
 
     Event Grid->>Functions: Incoming Call
 
-    Functions->>Communication Service: List Phone Numbers
+    Functions->>Communication Service: List Purchased Numbers
     Communication Service-->>Functions: Phone Number
 
-    Functions->>Cosmos DB: Query Phone Number
+    Functions->>Cosmos DB: Query Service Agents
     Cosmos DB-->>Functions: Target Phone Number
 
     Functions->>Communication Service: Redirect Call
