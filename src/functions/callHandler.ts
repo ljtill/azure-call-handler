@@ -1,16 +1,39 @@
 import { app, EventGridEvent, InvocationContext } from "@azure/functions";
 import { ManagedIdentityCredential } from "@azure/identity";
-import { CosmosClient, ItemResponse } from "@azure/cosmos";
-import { PhoneNumbersClient } from "@azure/communication-phone-numbers"
+import { CosmosClient, Item, ItemResponse } from "@azure/cosmos";
 import { CallAutomationClient, CallInvite } from "@azure/communication-call-automation";
+
+type ServiceAgent = {
+    id: string
+    fullName: string
+    phoneNumber: string
+    status: string
+}
+
+type CallData = {
+    to: {
+        kind: string
+        rawId: string
+        phoneNumber: string[]
+    }
+    from: {
+        kind: string
+        rawId: string
+        phoneNumber: string[]
+    }
+    serverCallId: string
+    callerDisplayName: string
+    incomingCallContext: string
+    correlationId: string
+}
 
 // Cosmos DB
 
-async function createCosmosClient(context: InvocationContext) {
-    context.debug("Initializing cosmos client")
+function createCosmosClient(context: InvocationContext) {
+    context.debug("[Handler] Initializing Cosmos DB client")
 
-    const endpoint = process.env["COSMOS_ENDPOINT"] || ""
-    if (endpoint == "") {
+    const endpoint = process.env["COSMOS_ENDPOINT"] || null
+    if (typeof endpoint == null) {
         context.error("Environment variable (COSMOS_ENDPOINT) is not defined.")
     }
 
@@ -19,55 +42,53 @@ async function createCosmosClient(context: InvocationContext) {
 }
 
 async function getCosmosItem(context: InvocationContext, client: CosmosClient): Promise<ItemResponse<any>> {
-    context.debug("Retrieving cosmos items")
+    context.debug("[Handler] Querying Cosmos DB items")
 
-    const databaseId = process.env["COSMOS_DATABASE"] || ""
-    if (databaseId == "") {
+    const databaseId = process.env["COSMOS_DATABASE"] || null
+    if (typeof databaseId == null) {
         context.error("Environment variable (COSMOS_DATABASE) is not defined.")
     }
 
-    const containerId = process.env["COSMOS_CONTAINER"] || ""
-    if (containerId == "") {
+    const containerId = process.env["COSMOS_CONTAINER"] || null
+    if (typeof containerId == null) {
         context.error("Environment variable (COSMOS_CONTAINER) is not defined.")
     }
 
     const container = client.database(databaseId).container(containerId)
-    const { resources: items } = await container.items.readAll().fetchAll()
+    let item: ItemResponse<any>
 
-    return await container.item(items[0].id).read()
-}
-
-// Phone Numbers
-
-async function createPhoneClient(context: InvocationContext) {
-    context.debug("Initializing phone client")
-
-    const endpoint = process.env["COMMUNICATION_ENDPOINT"] || ""
-    if (endpoint == "") {
-        context.error("Environment variable (COMMUNICATION_ENDPOINT) is not defined.")
+    try {
+        const { resources: items } = await container.items.readAll().fetchAll()
+        if (items.length > 0) {
+            item = (await container.item(items[0].id).read())
+        } else {
+            throw new Error("No items found in the container.")
+        }
+    } catch (error) {
+        context.error("Error fetching item from Cosmos DB")
     }
 
-    const credential = new ManagedIdentityCredential()
-    return new PhoneNumbersClient(endpoint, credential)
+    return item
 }
 
-async function getPhoneNumber(context: InvocationContext, client: PhoneNumbersClient) {
-    context.debug("Retrieving phone numbers")
+function parseServiceAgent(item: ItemResponse<any>, context: InvocationContext): ServiceAgent {
+    context.debug("[Handler] Parsing Cosmos DB item")
 
-    const phoneNumbers = client.listPurchasedPhoneNumbers()
-
-    for await (const phoneNumber of phoneNumbers) {
-        return phoneNumber.phoneNumber
+    const serviceAgent = item.resource as ServiceAgent | null
+    if (typeof serviceAgent == null) {
+        context.error("Unable to parse Cosmos DB item")
     }
+
+    return serviceAgent
 }
 
 // Call Automation
 
-async function createCallClient(context: InvocationContext) {
-    context.debug("Initializing call client")
+function createCallClient(context: InvocationContext) {
+    context.debug("[Handler] Initializing ACS Call client")
 
-    const endpoint = process.env["COMMUNICATION_ENDPOINT"] || ""
-    if (endpoint == "") {
+    const endpoint = process.env["COMMUNICATION_ENDPOINT"] || null
+    if (typeof endpoint == null) {
         context.error("Environment variable (COMMUNICATION_ENDPOINT) is not defined.")
     }
 
@@ -75,19 +96,30 @@ async function createCallClient(context: InvocationContext) {
     return new CallAutomationClient(endpoint, credential)
 }
 
-async function redirectCall(context: InvocationContext, callContext: any, client: CallAutomationClient, sourcePhoneNumber: string, targetPhoneNumber: string) {
-    context.log("Redirecting incoming call")
+async function redirectCall(client: CallAutomationClient, callData: CallData, callAgent: ServiceAgent, context: InvocationContext) {
+    context.debug("[Handler] Redirecting incoming call")
 
     const callInvite: CallInvite = {
         sourceCallIdNumber: {
-            phoneNumber: sourcePhoneNumber
+            phoneNumber: callData.to.rawId.split(":")[1]
         },
         targetParticipant: {
-            phoneNumber: targetPhoneNumber
+            phoneNumber: callAgent.phoneNumber
         }
     }
 
-    await client.redirectCall(callContext, callInvite)
+    await client.redirectCall(callData.incomingCallContext, callInvite)
+}
+
+function parseCallData(context: InvocationContext, event: EventGridEvent): CallData {
+    context.debug("[Handler] Parsing Event Grid data")
+
+    const callData = event.data as CallData | null
+    if (typeof callData == null) {
+        context.error("Unable to parse Event Grid data")
+    }
+
+    return callData
 }
 
 // Functions
@@ -95,14 +127,11 @@ async function redirectCall(context: InvocationContext, callContext: any, client
 export async function callHandler(event: EventGridEvent, context: InvocationContext): Promise<void> {
     context.log('Handler processed event:', event);
 
-    const phoneClient = await createPhoneClient(context)
-    const sourcePhoneNumber = await getPhoneNumber(context, phoneClient)
+    const cosmosItem = await getCosmosItem(context, createCosmosClient(context))
+    const serviceAgent = parseServiceAgent(cosmosItem, context)
 
-    const cosmosClient = await createCosmosClient(context)
-    const targetPhoneNumber = (await getCosmosItem(context, cosmosClient)).resource.phoneNumber
-
-    const callClient = await createCallClient(context)
-    await redirectCall(context, event.data.incomingCallContext, callClient, sourcePhoneNumber, targetPhoneNumber)
+    const callData = parseCallData(context, event)
+    await redirectCall(createCallClient(context), callData, serviceAgent, context)
 }
 
 app.eventGrid('callHandler', {
