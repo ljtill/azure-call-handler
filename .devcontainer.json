@@ -1,5 +1,5 @@
 {
-    "name": "Router",
+    "name": "Call Handler",
     "image": "mcr.microsoft.com/devcontainers/base:jammy",
     "features": {
         "ghcr.io/devcontainers/features/azure-cli:1": {},
