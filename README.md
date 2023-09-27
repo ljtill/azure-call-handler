@@ -9,10 +9,11 @@ _Please note these artifacts are under development and subject to change._
 ## Guides
 
 - [Getting Started](./docs/README.md#getting-started)
+- [Call Automation](https://learn.microsoft.com/azure/communication-services/concepts/call-automation/call-automation)
+- [Job Router](https://learn.microsoft.com/azure/communication-services/concepts/router/concepts)
+- [Communication SDK](https://github.com/Azure/azure-sdk-for-js/tree/main/sdk/communication)
 
 ## Architecture
-
-### Process Flow
 
 ```mermaid
 sequenceDiagram
@@ -35,8 +36,6 @@ sequenceDiagram
 
     Functions->>Communication Service: Redirect Call
 ```
-
-### Identity Design
 
 ```mermaid
 flowchart LR
