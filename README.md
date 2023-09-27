@@ -120,7 +120,9 @@ az functionapp config appsettings set \
 az eventgrid event-subscription create \
     --name 'default' \
     --source-resource-id '' \
-    --endpoint 'https://{}.azurewebsites.net/api/callHandler'
+    --endpoint-type azurefunction \
+    --endpoint '' \
+    --included-event-types 'Microsoft.Communication.IncomingCall'
 
 # Role Assignment
 # Functions (Identity) -> Communication Service
