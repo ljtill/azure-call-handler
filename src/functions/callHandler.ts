@@ -4,7 +4,6 @@ import { CosmosClient, ItemResponse } from "@azure/cosmos";
 import { PhoneNumbersClient } from "@azure/communication-phone-numbers"
 import { CallAutomationClient, CallInvite } from "@azure/communication-call-automation";
 
-
 // Cosmos DB
 
 async function createCosmosClient(context: InvocationContext) {
