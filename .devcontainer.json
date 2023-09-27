@@ -2,7 +2,9 @@
     "name": "Call Handler",
     "image": "mcr.microsoft.com/devcontainers/base:jammy",
     "features": {
-        "ghcr.io/devcontainers/features/azure-cli:1": {},
+        "ghcr.io/devcontainers/features/azure-cli:1": {
+            "extensions": "communication,application-insights"
+        },
         "ghcr.io/devcontainers/features/node:1": {},
         "ghcr.io/ljtill/features/func:1": {}
     },
