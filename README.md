@@ -36,9 +36,3 @@ sequenceDiagram
 
     Functions->>Communication Service: Redirect Call
 ```
-
-```mermaid
-flowchart LR
-   Functions -- Contributor --> Communuication-Service
-   Functions -- Cosmos DB Built-in Data Reader --> Cosmos-DB
-```
