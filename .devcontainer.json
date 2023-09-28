@@ -5,7 +5,9 @@
         "ghcr.io/devcontainers/features/azure-cli:1": {
             "extensions": "communication,application-insights"
         },
-        "ghcr.io/devcontainers/features/node:1": {},
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "18"
+        },
         "ghcr.io/ljtill/features/func:1": {}
     },
     "customizations": {
