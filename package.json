@@ -17,7 +17,7 @@
     "@azure/identity": "^4.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.19",
+    "@types/node": "^20.11.20",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.3"
   },
